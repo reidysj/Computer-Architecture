@@ -1,4 +1,7 @@
-"""CPU functionality."""
+"""
+CPU functionality.
+Constructor that contains all of the instructions for the CPU
+"""
 
 import sys
 
@@ -6,8 +9,22 @@ class CPU:
     """Main CPU class."""
 
     def __init__(self):
-        """Construct a new CPU."""
-        pass
+        # ram that holds 256 bytes (list of 0)
+        self.ram = [0] * 256
+        # 8 registers (list of 0)
+        self.reg = [0] * 8
+        # reg7 resets/defaults to 0xF0
+        self.reg[7] = 0XF0
+        # internal pc register = 0
+        self.pc = 0
+
+    def ram_read(self, MAR): # MAR = Memory address register
+        # uses an address to read and returns the value stored at that address
+        return self.ram[MAR]
+
+    def ram_write(self, MAR, MDR): # MDR = Memory data register
+        self.ram[MAR] = MDR
+
 
     def load(self):
         """Load a program into memory."""
@@ -62,4 +79,29 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        pass
+        is_running = True
+
+        HLT = 0b00000001 
+        LDI = 0b10000010
+        PRN = 0b01000111
+
+        while is_running:
+            # read the memory address stored in PC and store it in IR(instruction register local to this method)
+            ir = self.ram_read(self.pc)
+            # use ram_read to read bytes 1 and 2 ahead of PC and store them in case needed (operand_a, operand_b)
+            operand_a = self.ram_read(self.pc + 1)
+            operand_b = self.ram_read(self.pc + 2)
+
+            if ir == HLT:
+                is_running = False
+            
+            elif ir == LDI:
+                self.reg[operand_a] = operand_b
+                self.pc += 3
+
+            elif ir == PRN:
+                print(self.reg[operand_a])
+                self.pc += 2
+
+
+

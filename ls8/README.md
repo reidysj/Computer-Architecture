@@ -1,3 +1,5 @@
+In this file: All specs, including step by step implementation.
+
 # Project: The LS-8 Emulator
 
 ## Implementation of the LS-8 Emulator

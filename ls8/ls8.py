@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 
-"""Main."""
+"""
+Main.
+Runs the cpu
+"""
+
 
 import sys
 from cpu import *
