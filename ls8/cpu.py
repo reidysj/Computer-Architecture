@@ -10,9 +10,11 @@ HLT = 0b00000001
 LDI = 0b10000010
 PRN = 0b01000111
 MUL = 0b10100010
+ADD = 0b10100000
 PUSH = 0b01000101
 POP = 0b01000110
-
+CALL = 0b01010000
+RET = 0b00010001
 
 class CPU:
     """Main CPU class."""
@@ -24,18 +26,24 @@ class CPU:
         self.reg = [0] * 8
         # reg7 resets/defaults to 0xF4
         self.reg[7] = 0XF0
-        self.SP = 7
         # internal pc register = 0
         self.pc = 0
         # setup branch table
         self.is_running = False
+        # use pattern 00000LGE for FL register
+        self.FL = 0b00000000
+        # Start branch table setup 
         self.branchtable = {}
         self.branchtable[HLT] = self.handle_HLT
         self.branchtable[LDI] = self.handle_LDI
         self.branchtable[PRN] = self.handle_PRN
         self.branchtable[MUL] = self.handle_MUL
+        self.branchtable[ADD] = self.handle_ADD
         self.branchtable[PUSH] = self.handle_PUSH
         self.branchtable[POP] = self.handle_POP
+        self.branchtable[CALL] = self.handle_CALL
+        self.branchtable[RET] = self.handle_RET
+        # End branch table setup
 
 
     # branch table methods
@@ -51,17 +59,31 @@ class CPU:
     def handle_MUL(self, operand_a, operand_b):
         self.alu('MUL', operand_a, operand_b)
 
+    def handle_ADD(self, operand_a, operand_b):
+        self.alu('ADD', operand_a, operand_b)
+
     def handle_PUSH(self, operand, *args):
         val = self.reg[operand]
-        self.reg[self.SP] -= 1
-        self.ram[self.reg[self.SP]] = val
+        self.reg[7] -= 1
+        self.ram[self.reg[7]] = val
 
-    
-    # operand = reg index
     def handle_POP(self, operand, *args):
-        val = self.ram[self.reg[self.SP]]
+        val = self.ram[self.reg[7]]
         self.reg[operand] = val
-        self.reg[self.SP] += 1
+        self.reg[7] += 1
+
+    def handle_CALL(self, operand_a, operand_b):
+        addr = self.reg[operand_a]
+        rtn_addr = self.pc + 2
+        self.reg[7] -= 1  
+        sp = self.reg[7]  
+        self.ram[sp] = rtn_addr 
+        self.pc = addr
+
+    def handle_RET(self, *args):
+        rtn_addr = self.ram[self.reg[7]]
+        self.reg[7] += 1
+        self.pc = rtn_addr
 
 
     # end branch table methods
@@ -137,7 +159,9 @@ class CPU:
 
             self.branchtable[ir](operand_a, operand_b)
 
-            self.pc += add_to_pc
+
+            if ir != CALL and ir != RET:
+                self.pc += add_to_pc
 
 
 
