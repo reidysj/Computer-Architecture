@@ -10,6 +10,8 @@ HLT = 0b00000001
 LDI = 0b10000010
 PRN = 0b01000111
 MUL = 0b10100010
+PUSH = 0b01000101
+POP = 0b01000110
 
 
 class CPU:
@@ -20,8 +22,9 @@ class CPU:
         self.ram = [0] * 256
         # 8 registers (list of 0)
         self.reg = [0] * 8
-        # reg7 resets/defaults to 0xF0
+        # reg7 resets/defaults to 0xF4
         self.reg[7] = 0XF0
+        self.SP = 7
         # internal pc register = 0
         self.pc = 0
         # setup branch table
@@ -31,6 +34,8 @@ class CPU:
         self.branchtable[LDI] = self.handle_LDI
         self.branchtable[PRN] = self.handle_PRN
         self.branchtable[MUL] = self.handle_MUL
+        self.branchtable[PUSH] = self.handle_PUSH
+        self.branchtable[POP] = self.handle_POP
 
 
     # branch table methods
@@ -45,6 +50,19 @@ class CPU:
 
     def handle_MUL(self, operand_a, operand_b):
         self.alu('MUL', operand_a, operand_b)
+
+    def handle_PUSH(self, operand, *args):
+        val = self.reg[operand]
+        self.reg[self.SP] -= 1
+        self.ram[self.reg[self.SP]] = val
+
+    
+    # operand = reg index
+    def handle_POP(self, operand, *args):
+        val = self.ram[self.reg[self.SP]]
+        self.reg[operand] = val
+        self.reg[self.SP] += 1
+
 
     # end branch table methods
 
