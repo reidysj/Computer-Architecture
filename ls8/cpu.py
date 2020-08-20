@@ -15,6 +15,31 @@ PUSH = 0b01000101
 POP = 0b01000110
 CALL = 0b01010000
 RET = 0b00010001
+AND = 0b10101000
+CMP = 0b10100111
+DEC = 0b01100110
+DIV = 0b10100011
+INC = 0b01100101
+INT = 0b01010010
+IRET = 0b00010011
+JEQ = 0b01010101
+JGE = 0b01011010
+JGT = 0b01010111
+JLE = 0b01011001
+JLT = 0b01011000
+JMP = 0b01010100
+JNE = 0b01010110
+LD = 0b10000011
+MOD = 0b10100100
+NOP = 0b00000000
+NOT = 0b01101001
+OR = 0b10101010
+PRA = 0b01001000
+SHL = 0b10101100
+SHR = 0b10101101
+ST = 0b10000100
+SUB = 0b10100001
+XOR = 0b10101011
 
 class CPU:
     """Main CPU class."""
@@ -31,18 +56,46 @@ class CPU:
         # setup branch table
         self.is_running = False
         # use pattern 00000LGE for FL register
-        self.FL = 0b00000000
+        self.FL = 0b11000000
+        # use R5 for interrupt mask, R6 for interrupt status
+        self.IM = self.reg[5]
+        self.IS = self.reg[6]
         # Start branch table setup 
-        self.branchtable = {}
-        self.branchtable[HLT] = self.handle_HLT
-        self.branchtable[LDI] = self.handle_LDI
-        self.branchtable[PRN] = self.handle_PRN
-        self.branchtable[MUL] = self.handle_MUL
-        self.branchtable[ADD] = self.handle_ADD
-        self.branchtable[PUSH] = self.handle_PUSH
-        self.branchtable[POP] = self.handle_POP
-        self.branchtable[CALL] = self.handle_CALL
-        self.branchtable[RET] = self.handle_RET
+        self.branchtable = {
+            HLT : self.handle_HLT,
+            LDI : self.handle_LDI,
+            PRN : self.handle_PRN,
+            MUL : self.handle_MUL,
+            ADD : self.handle_ADD,
+            PUSH : self.handle_PUSH,
+            POP : self.handle_POP,
+            CALL : self.handle_CALL,
+            RET : self.handle_RET,
+            CMP : self.handle_CMP,
+            DEC : self.handle_DEC,
+            DIV : self.handle_DIV,
+            INC : self.handle_INC,
+            INT : self.handle_INT,
+            IRET : self.handle_IRET,
+            JEQ: self.handle_JEQ,
+            JGE: self.handle_JGE,
+            JGT: self.handle_JGT,
+            JLE: self.handle_JLE,
+            JLT: self.handle_JLT,
+            JMP: self.handle_JMP,
+            JNE: self.handle_JNE,
+            LD: self.handle_LD,
+            MOD: self.handle_MOD,
+            NOP: self.handle_NOP,
+            NOT: self.handle_NOT,
+            OR: self.handle_OR,
+            PRA: self.handle_PRA,
+            SHL: self.handle_SHL,
+            SHR: self.handle_SHR,
+            ST: self.handle_ST,
+            SUB: self.handle_SUB,
+            XOR: self.handle_XOR
+        }
         # End branch table setup
 
 
@@ -55,12 +108,6 @@ class CPU:
 
     def handle_PRN(self, operand_a, operand_b):
         print(self.reg[operand_a])
-
-    def handle_MUL(self, operand_a, operand_b):
-        self.alu('MUL', operand_a, operand_b)
-
-    def handle_ADD(self, operand_a, operand_b):
-        self.alu('ADD', operand_a, operand_b)
 
     def handle_PUSH(self, operand, *args):
         val = self.reg[operand]
@@ -84,7 +131,120 @@ class CPU:
         rtn_addr = self.ram[self.reg[7]]
         self.reg[7] += 1
         self.pc = rtn_addr
+    
+    def handle_INT(self, operand, *args):
+        # set r6's nth bit to the value in the given reg
+        # use hashing w/ or to preserve all other digits
+        # hashing number will be a 1 squished over by the amount of the value
+        self.reg[6] |= (1 << self.reg[operand])
 
+    def handle_IRET(self, *args):
+        # pop r6-r0 off the stack in that order
+        for i in range(6, -1, -1):
+            self.handle_POP(i)
+        # pop the FL reg off the stack
+        self.FL = self.ram_read(self.reg[7])
+        self.reg[7] += 1
+        # pop the return address off and store it in pc
+        self.pc = self.reg[7]
+        #TODO re-enable interupts (?)
+
+
+    def handle_JEQ(self, operand, *args):
+        if self.FL & 0b00000001:
+            self.pc = self.reg[operand]
+        else:
+            self.pc += 2
+
+    def handle_JGE(self, operand, *args):
+        if self.FL & 0b00000011:
+            self.pc = self.reg[operand]
+        else:
+            self.pc += 2
+
+    def handle_JGT(self, operand, *args):
+        if self.FL & 0b00000010:
+            self.pc = self.reg[operand]
+        else:
+            self.pc += 2
+
+    def handle_JLE(self, operand, *args):
+        if self.FL & 0b00000110:
+            self.pc = self.reg[operand]
+        else:
+            self.pc += 2
+
+    def handle_JLT(self, operand, *args):
+        if self.FL & 0b00001000:
+            self.pc = self.reg[operand]
+        else:
+            self.pc += 2
+
+    def handle_JMP(self, operand, *args):
+        self.pc = self.reg[operand]
+
+    def handle_JNE(self, operand, *args):
+        if not self.FL & 0b00000001:
+            self.pc = self.reg[operand]
+        else: 
+            self.pc += 2
+
+    def handle_LD(self, operand_a, operand_b):
+        self.reg[operand_a] = self.ram[self.reg[operand_b]]
+
+    def handle_NOP(self, *args):
+        pass
+
+    def handle_PRA(self, operand):
+        letter = self.reg[operand]
+        print(chr(letter))
+
+    def handle_ST(self, operand_a, operand_b):
+        self.ram_write(self.reg[operand_a], self.reg[operand_b])
+
+    # start alu branch table methods
+
+    def handle_MUL(self, operand_a, operand_b):
+        self.alu('MUL', operand_a, operand_b)
+
+    def handle_ADD(self, operand_a, operand_b):
+        self.alu('ADD', operand_a, operand_b)
+
+    def handle_AND(self, operand_a, operand_b):
+        self.alu('AND', operand_a, operand_b)
+
+    def handle_CMP(self, operand_a, operand_b):
+        self.alu('CMP', operand_a, operand_b)
+
+    def handle_DEC(self, operand_a, operand_b):
+        self.alu('DEC', operand_a, operand_b)
+
+    def handle_DIV(self, operand_a, operand_b):
+        self.alu('DIV', operand_a, operand_b)
+    
+    def handle_INC(self, operand_a, operand_b):
+        self.alu('INC', operand_a, operand_b)
+
+    def handle_MOD(self, operand_a, operand_b):
+        self.alu('MOD', operand_a, operand_b)
+
+    def handle_NOT(self, operand_a, operand_b):
+        self.alu('NOT', operand_a, operand_b)
+
+    def handle_OR(self, operand_a, operand_b):
+        self.alu('OR', operand_a, operand_b)
+
+    def handle_SHL(self, operand_a, operand_b):
+        self.alu('SHL', operand_a, operand_b)
+    
+    def handle_SHR(self, operand_a, operand_b):
+        self.alu('SHR', operand_a, operand_b)
+
+    def handle_SUB(self, operand_a, operand_b):
+        self.alu('SUB', operand_a, operand_b)
+
+    def handle_XOR(self, operand_a, operand_b):
+        self.alu('XOR', operand_a, operand_b)
 
     # end branch table methods
 
@@ -119,8 +279,68 @@ class CPU:
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
+            self.reg[reg_a] &= 0xFF
+
         elif op == 'MUL':
             self.reg[reg_a] *= self.reg[reg_b]
+            self.reg[reg_a] &= 0xFF
+
+        elif op == 'AND':
+            self.reg[reg_a] &= self.reg[reg_b]
+            self.reg[reg_a] &= 0xFF
+
+        elif op == 'CMP':
+            self.FL = self.FL & 0b11111000
+
+            if self.reg[reg_a] == self.reg[reg_b]:
+                self.FL = self.FL | 0b00000001
+            elif self.reg[reg_a] > self.reg[reg_b]:
+                self.FL = self.FL | 0b00000010
+            elif self.reg[reg_a] < self.reg[reg_b]:
+                self.FL = self.FL | 0b00000100
+
+        elif op == 'DEC':
+            self.reg[reg_a] -= 1
+            self.reg[reg_a] &= 0xFF
+
+        elif op == 'DIV':
+            if self.reg[reg_b]:
+                self.reg[reg_a] /= self.reg[reg_b]
+
+            else:
+                self.handle_HLT()
+                raise Exception("Cannot divide by 0")
+
+        elif op == 'INC':
+            self.reg[reg_a] += 1
+            self.reg[reg_a] &= 0xFF
+
+        elif op == 'MOD':
+            if self.reg[reg_b]: 
+                self.reg[reg_a] %= self.reg[reg_b]
+
+            else:
+                self.handle_HLT()
+                raise Exception("Cannot divide by 0")
+
+        elif op == 'NOT':
+            self.reg[reg_a] = self.reg[reg_a] ^ 0b11111111
+
+        elif op == 'OR':
+            self.reg[reg_a] |= self.reg[reg_b]
+
+        elif op == 'SHL':
+            self.reg[reg_a] = (self.reg[reg_a] << self.reg[reg_b])
+
+        elif op == 'SHR':
+            self.reg[reg_a] = (self.reg[reg_a] >> self.reg[reg_b])
+
+        elif op == 'SUB':
+            self.reg[reg_a] -= self.reg[reg_b]
+
+        elif op == 'XOR':
+            self.reg[reg_a] = self.reg[reg_a] ^ self.reg[reg_b]
+
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -159,8 +379,12 @@ class CPU:
 
             self.branchtable[ir](operand_a, operand_b)
 
+            jumps = [CALL, RET, JEQ, JGE, JGT, JLE, JLT, JMP, JNE]
 
-            if ir != CALL and ir != RET:
+            # if ir != CALL and ir != RET:
+            #     self.pc += add_to_pc
+
+            if ir not in jumps:
                 self.pc += add_to_pc
 
 
