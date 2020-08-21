@@ -195,7 +195,7 @@ class CPU:
     def handle_NOP(self, *args):
         pass
 
-    def handle_PRA(self, operand):
+    def handle_PRA(self, operand, *args):
         letter = self.reg[operand]
         print(chr(letter))
 
@@ -379,11 +379,12 @@ class CPU:
 
             self.branchtable[ir](operand_a, operand_b)
 
-            jumps = [CALL, RET, JEQ, JGE, JGT, JLE, JLT, JMP, JNE]
+            jumps = [CALL, RET, JEQ, JGE, JGT, JLE, JLT, JMP, JNE, IRET]
+
 
             # if ir != CALL and ir != RET:
             #     self.pc += add_to_pc
-
+            # print(add_to_pc)
             if ir not in jumps:
                 self.pc += add_to_pc
 
