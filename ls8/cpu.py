@@ -36,7 +36,7 @@ class CPU:
         # setup branch table
         self.is_running = False
         # use pattern 00000LGE for FL register
-        self.FL = 0b11000000
+        self.FL = 0b00000000
         # use R5 for interrupt mask, R6 for interrupt status
         self.IM = self.reg[5]
         self.IS = self.reg[6]
@@ -72,7 +72,12 @@ class CPU:
         
 
     def alu(self, op, reg_a, reg_b):
-        """ALU operations."""
+        """
+        ALU operations.
+        Operations which perform math must bitwise-AND 
+        w/ 0xFF (255) to ensure they stay in the range
+        of 0 - 255
+        """
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
@@ -87,13 +92,14 @@ class CPU:
             self.reg[reg_a] &= 0xFF
 
         elif op == 'CMP':
-            self.FL = self.FL & 0b11111000
-
             if self.reg[reg_a] == self.reg[reg_b]:
+                # set E to true and leave others alone
                 self.FL = self.FL | 0b00000001
             elif self.reg[reg_a] > self.reg[reg_b]:
+                # set G to true and leave others alone
                 self.FL = self.FL | 0b00000010
             elif self.reg[reg_a] < self.reg[reg_b]:
+                # set L to true and leave others alone
                 self.FL = self.FL | 0b00000100
 
         elif op == 'DEC':
@@ -174,15 +180,12 @@ class CPU:
 
             add_to_pc = (ir >> 6) + 1
 
-            # self.branchtable[ir](operand_a, operand_b)
-
             if ir in main_branch.keys():
                 self.main_branch[ir](self, operand_a, operand_b)
             elif ir in alu_branch.keys():
                 self.alu_branch[ir](self, operand_a, operand_b)
 
             jumps = [CALL, RET, JEQ, JGE, JGT, JLE, JLT, JMP, JNE, IRET]
-
 
             if ir not in jumps:
                 self.pc += add_to_pc
